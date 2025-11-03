@@ -1,0 +1,8 @@
+numpy
+scipy
+opencv-python
+pip3-autoremove
+scikit-learn
+
+#### testlibs
+matplotlib 
