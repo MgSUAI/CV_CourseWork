@@ -15,15 +15,28 @@ from cvpr_compare import cvpr_compare
 
 def get_class_from_filename(filename):
     """
-    Extract class label from the given filename.
-    Assumes the class label is the substring before the first underscore.
+    Extract class label from the filename.
+
+    Args:
+        filename: filename from which to extract the class label
+        
+    Returns:
+        np.int16: The class label as a 16-bit integer.
     """
     base = os.path.basename(filename)
     return np.int16(base.split('_')[0])
 
 
 def load_dataset():
+    """
+    Load image descriptors, file paths, and class labels from the dataset.
 
+    Returns:
+        tuple: A tuple containing three numpy arrays:
+            - all_files (np.ndarray): Array of image file paths
+            - all_labels (np.ndarray): Array of class labels
+            - all_features (list): List of image descriptors
+    """
     all_features, all_files, all_labels = [], [], []
 
     for filename in os.listdir(os.path.join(config.output_folder, config.output_subfolder)):
@@ -39,19 +52,22 @@ def load_dataset():
     return np.array(all_files), np.array(all_labels), all_features
 
 
-def image_search_global_histogram(query_index, labels, features):
+def image_search_global_histogram(query_index, labels, features, file_paths):
+    """
+    Perform image search using global histogram features and compute precision-recall metrics.
 
-    # # for each element in all_features, sum the values and store in a list 
-    # sum_features = [np.sum(f) for f in all_features]
-    
+    Args:
+        query_index (int): Index of the query image
+        labels (np.ndarray): Array of class labels for all images
+        features (list): List of feature descriptors for all images
 
-    # Pick a random image as the query
-    # query_image_index = randint(0, all_features.shape[0] - 1)
-
-    # todo: for test only
-    # query_image_index = all_files.index('/Users/milan/Documents/SurreyUni/Sem1/ComputerVision/Labs/Lab3_5/db/MSRC_ObjCategImageDatabase_v2/Images/1_1_s.bmp') 
-
-
+    Returns:
+        tuple: A tuple containing:
+            - precisions (np.ndarray): Array of precision values
+            - recalls (np.ndarray): Array of recall values
+            - predicted_label (int): Predicted class label based on top-5 results
+            Returns None if the query class has only one image
+    """
     # Compute the distance between the query and all other descriptors
     distance_list = []
     query_feature = features[query_index]
@@ -66,6 +82,14 @@ def image_search_global_histogram(query_index, labels, features):
 
     sorted_indices = np.argsort(distance_list)[1:]  # Exclude the query itself
     predicted_labels = labels[sorted_indices]
+
+    # print images 
+    if query_index == image_index_to_print:
+        result_image_paths = [file_paths[query_index]]  # include query image first
+        for i in range(10):
+            result_image_path = file_paths[sorted_indices[i]]   
+            result_image_paths.append(result_image_path) 
+        show_images_matplot(result_image_paths)
 
     relevances = np.array([1 if label == query_label else 0 for label in predicted_labels])
 
@@ -93,56 +117,13 @@ def image_search_global_histogram(query_index, labels, features):
 
 
 
-
-
-
-    # Show the top 5 results
-    # query_image = cv2.imread(all_files[query_image_index])
-
-    # img = cv2.resize(img, (img.shape[1] // 2, img.shape[0] // 2))  # Make image quarter size
-    # cv2.imshow(f"Query = {os.path.basename(all_files[query_image_index])}", query_image)
-    # cv2.waitKey(0)
-
-    # num_results = 10
-    # for i in range(num_results):
-    #     result_image = cv2.imread(all_files[distance_list[i][1]])
-    #     result_image = cv2.resize(result_image, (result_image.shape[1] // 2, result_image.shape[0] // 2))  # Make image quarter size
-    #     cv2.imshow(f"Result {os.path.basename(all_files[distance_list[i][1]])}", result_image)
-    #     cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-
-    # result_image_paths = [all_files[query_image_index]]  # include query image first
-    # for i in range(num_results):
-    #     result_image_path = all_files[distance_list[i][1]]   
-    #     result_image_paths.append(result_image_path) 
-    # show_images_matplot(result_image_paths)
-    # # show_images_cv2(result_image_paths)
-
-    ########################
-
-    ### xx
-    # Prepare data for precision-recall curve
-    # y_true = [1 if distance_list[i][2] else 0 for i in range(len(distance_list))]
-    # y_scores = [distance_list[i][0] for i in range(len(distance_list))]
-    # # [ distance_list[i][0] for i in range(len(distance_list))]  
-    # precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
-    
-    # # Calculate Average Precision (AP) score
-    # ap_score = average_precision_score(y_true, y_scores)
-    
-    # # Plot Precision-Recall curve
-    # plt.figure(figsize=(8, 6))
-    # plt.plot(recall, precision, color='b', label=f'AP = {ap_score:.2f}')
-    # plt.xlabel('Recall')
-    # plt.ylabel('Precision')
-    # plt.title('Precision-Recall curve')
-    # plt.legend(loc='best')
-    # plt.grid(True)
-    # plt.show()
-
-
-
 def show_images_matplot(image_paths):
+    """
+    Display multiple images in a horizontal grid using matplotlib.
+
+    Args:
+        image_paths (list): List of file paths to the images to be displayed
+    """
     # Create a figure
     fig, axes = plt.subplots(1, len(image_paths), figsize=(15, 5))
 
@@ -161,6 +142,9 @@ def show_images_matplot(image_paths):
 
 
 def remove_descriptor_files():
+    """
+    Remove all .mat descriptor files from the output directory.
+    """
     print("Removing existing descriptor files...")
     descriptor_folder = os.path.join(config.output_folder, config.output_subfolder)
     for filename in os.listdir(descriptor_folder):
@@ -170,6 +154,17 @@ def remove_descriptor_files():
 
 
 def plot_pr_curve(recall_points, mean_precision, mean_average_precision):
+    """
+    Plot and save the precision-recall curve for the image retrieval results.
+
+    Args:
+        recall_points (np.ndarray): Array of recall points
+        mean_precision (np.ndarray): Array of mean precision values
+        mean_average_precision (float): Mean Average Precision value
+
+    Returns:
+        None: Saves the plot as 'pr_curve.png' and displays it
+    """
     plt.figure(figsize=(8, 6))
     plt.plot(recall_points, mean_precision, color='blue', label=f"Mean PR (mAP = {mean_average_precision:.3f})")
     plt.axis([0, 1, 0, 1])
@@ -186,6 +181,17 @@ def plot_pr_curve(recall_points, mean_precision, mean_average_precision):
 
 
 def plot_confusion_matrix(y_true, y_pred, unique_classes):
+    """
+    Create and save a confusion matrix visualization for classification results.
+
+    Args:
+        y_true (list): List of true class labels
+        y_pred (list): List of predicted class labels
+        unique_classes (list): List of all unique class labels
+
+    Returns:
+        None: Saves the plot as 'confusion_matrix.png' and displays it
+    """
     cm = confusion_matrix(y_true, y_pred, labels=unique_classes)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=unique_classes)
 
@@ -200,17 +206,34 @@ def plot_confusion_matrix(y_true, y_pred, unique_classes):
 
 
 def main():
+    """
+    Main function that orchestrates the image retrieval and evaluation process.
     
+    This function:
+    1. Sets up the output directory
+    2. Computes image descriptors
+    3. Performs image search for each image in the dataset
+    4. Computes and plots precision-recall metrics
+    5. Creates and saves confusion matrix
+    
+    Returns:
+        None
+    """
     output_subfolder = os.path.join(config.output_folder, config.output_subfolder)
     os.makedirs(output_subfolder, exist_ok=True)
     remove_descriptor_files()
 
-    compute_descriptors('histogram', num_bins=config.num_bins)
+    # compute_descriptors('color_histogram', num_bins=config.num_bins)
+    compute_descriptors('compute_grid_color_histogram'
+                        , num_bins=config.num_bins
+                        , grid_rows=config.grid_rows
+                        , grid_cols=config.grid_cols)
+    
     all_files, all_labels, all_features = load_dataset()
     
     all_precisions, all_recalls, y_true, y_pred = [], [], [], []
     for index in range(len(all_files)):
-        precisions, recalls, predicted_label = image_search_global_histogram(index, all_labels, all_features)
+        precisions, recalls, predicted_label = image_search_global_histogram(index, all_labels, all_features, all_files)
 
         all_precisions.append(precisions)
         all_recalls.append(recalls)
@@ -238,5 +261,6 @@ def main():
 
 
 if __name__ == '__main__':
+    image_index_to_print = random_number = np.random.randint(0, 591)
     main()
 

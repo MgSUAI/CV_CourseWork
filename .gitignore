@@ -3,6 +3,8 @@ output/*
 Skeleton_Python/*
 __pycache__/
 test_*
+tests/*
+src/unused/*
 
 L3_visual_search.py
 test*.py
