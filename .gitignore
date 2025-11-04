@@ -10,3 +10,4 @@ L3_visual_search.py
 test*.py
 .DS_Store
 *.png
+*.pdf

@@ -11,6 +11,7 @@ from sklearn.metrics import precision_recall_curve, average_precision_score
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from cvpr_computedescriptors import compute_descriptors
 from cvpr_compare import cvpr_compare
+import results_image_printer
 
 
 def get_class_from_filename(filename):
@@ -25,6 +26,31 @@ def get_class_from_filename(filename):
     """
     base = os.path.basename(filename)
     return np.int16(base.split('_')[0])
+
+
+def get_index_per_class(labels):
+
+    unique_labels = np.unique(labels)
+
+    # For each unique number, pick one random index where it occurs
+    selected_indices = []
+    for label in unique_labels:
+        indices = np.where(labels == label)[0]          # all indices for this value
+        chosen = np.random.choice(indices)         # pick one randomly
+        selected_indices.append(chosen)
+
+    # Convert to NumPy array
+    selected_indices = np.array(selected_indices)
+    return selected_indices
+
+
+def get_image_result_row(result_indices, files, labels):
+    image_group_row = []
+
+    for index in result_indices.tolist():
+        image_group_row.append((files[index], labels[index]))
+
+    return image_group_row
 
 
 def load_dataset():
@@ -52,7 +78,8 @@ def load_dataset():
     return np.array(all_files), np.array(all_labels), all_features
 
 
-def image_search_global_histogram(query_index, labels, features, file_paths):
+## todo: update args
+def image_search_global_histogram(query_index, labels, features, print_query_indices):
     """
     Perform image search using global histogram features and compute precision-recall metrics.
 
@@ -66,7 +93,7 @@ def image_search_global_histogram(query_index, labels, features, file_paths):
             - precisions (np.ndarray): Array of precision values
             - recalls (np.ndarray): Array of recall values
             - predicted_label (int): Predicted class label based on top-5 results
-            Returns None if the query class has only one image
+            - print_query_indices (np.ndarray): Array of one index per image class, used to print results
     """
     # Compute the distance between the query and all other descriptors
     distance_list = []
@@ -83,13 +110,19 @@ def image_search_global_histogram(query_index, labels, features, file_paths):
     sorted_indices = np.argsort(distance_list)[1:]  # Exclude the query itself
     predicted_labels = labels[sorted_indices]
 
-    # print images 
-    if query_index == image_index_to_print:
-        result_image_paths = [file_paths[query_index]]  # include query image first
-        for i in range(10):
-            result_image_path = file_paths[sorted_indices[i]]   
-            result_image_paths.append(result_image_path) 
-        show_images_matplot(result_image_paths)
+    # # print images 
+    # if query_index == image_index_to_print:
+    #     result_image_paths = [file_paths[query_index]]  # include query image first
+    #     for i in range(10):
+    #         result_image_path = file_paths[sorted_indices[i]]   
+    #         result_image_paths.append(result_image_path) 
+    #     show_images_matplot(result_image_paths)
+
+    if query_index in print_query_indices:
+        # print_row = np.array(query_index)
+        print_row = np.append([query_index], sorted_indices[:config.num_result_images_to_print])
+    else:
+        print_row = None
 
     relevances = np.array([1 if label == query_label else 0 for label in predicted_labels])
 
@@ -110,7 +143,7 @@ def image_search_global_histogram(query_index, labels, features, file_paths):
 
     # use the mode of first 5 predicted labels as the final predicted label
     predicted_label = stats.mode(predicted_labels[0:5])[0]
-    return np.array(precisions), np.array(recalls), predicted_label
+    return np.array(precisions), np.array(recalls), predicted_label, print_row
 
 
 ################
@@ -230,10 +263,16 @@ def main():
                         , grid_cols=config.grid_cols)
     
     all_files, all_labels, all_features = load_dataset()
+
+    print_query_indeces = get_index_per_class(all_labels)
     
     all_precisions, all_recalls, y_true, y_pred = [], [], [], []
+    query_result_print_data = []
     for index in range(len(all_files)):
-        precisions, recalls, predicted_label = image_search_global_histogram(index, all_labels, all_features, all_files)
+        precisions, recalls, predicted_label, print_row = image_search_global_histogram(index, all_labels, all_features, print_query_indeces)
+
+        if print_row is not None:
+            query_result_print_data.append(get_image_result_row(print_row, all_files, all_labels ))
 
         all_precisions.append(precisions)
         all_recalls.append(recalls)
@@ -242,6 +281,8 @@ def main():
 
         if (index + 1) % 50 == 0:
             print(f"Processed {index + 1}/{len(all_files)} queries...")
+
+    results_image_printer.image_printer(query_result_print_data)
 
     # --- AVERAGE PRECISION-RECALL ---
     recall_points = np.linspace(0, 1.0, 11)
@@ -261,6 +302,5 @@ def main():
 
 
 if __name__ == '__main__':
-    image_index_to_print = random_number = np.random.randint(0, 591)
     main()
 

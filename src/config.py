@@ -18,3 +18,6 @@ eoh_bins = 4
 # Weights for EOH and Color Histogram combination
 w_eoh = 0.8
 w_color = 0.2
+
+# results print
+num_result_images_to_print = 10
