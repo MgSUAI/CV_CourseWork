@@ -5,7 +5,7 @@ dataset_images_subfolder = 'Images'
 output_folder = os.path.realpath('output')
 output_subfolder = 'descriptors/globalRGBhisto'
 output_plots_subfolder = 'plots'
-
+output_metrics_subfolder = 'metrics'
 
 num_result_images_to_print = 10
 
@@ -16,8 +16,8 @@ distance_metric = 'euclidean'  # Options: 'manhattan', 'euclidean', 'mahalanobis
 
 ################################################
 # global color histogram config
-descriptor_type = 'global_color_histogram'
-num_bins = 8
+# descriptor_type = 'global_color_histogram'
+# num_bins = 8
 ################################################
 
 # #################################################

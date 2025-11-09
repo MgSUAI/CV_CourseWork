@@ -54,7 +54,7 @@ def get_image_result_row(result_indices, files, labels):
     return image_group_row
 
 
-def load_dataset():
+def load_dataset(run_configs):
     """
     Load image descriptors, file paths, and class labels from the dataset.
 
@@ -76,7 +76,7 @@ def load_dataset():
     #         all_features.append(image_descriptor_data['F'][0])  # F is a 1D array
     #         all_labels.append(get_class_from_filename(filename))
 
-    descriptor_list = compute_descriptors()
+    descriptor_list = compute_descriptors(run_configs)
     for descriptor in descriptor_list:
         file_path, feature = descriptor
         all_files.append(file_path)
@@ -86,7 +86,7 @@ def load_dataset():
     return np.array(all_files), np.array(all_labels), all_features
 
 
-def run_image_search(query_index, labels, features, print_query_indices, cov_inv = None):
+def run_image_search(query_index, labels, features, print_query_indices, run_configs, cov_inv = None):
     """
     Perform image search using global histogram features and compute precision-recall metrics.
 
@@ -110,14 +110,23 @@ def run_image_search(query_index, labels, features, print_query_indices, cov_inv
 
     for i in range(len(features)):
 
-        if config.distance_metric == 'manhattan':
+        # if config.distance_metric == 'manhattan':
+        #     distance = cvpr_compare.dist_manhattan(query_feature, features[i])        
+        # elif config.distance_metric == 'euclidean':
+        #     distance = cvpr_compare.dist_euclidean(query_feature, features[i])
+        # elif config.distance_metric == 'mahalanobis':
+        #     distance = cvpr_compare.dist_mahalanobis(query_feature, features[i], cov_inv)
+        # elif config.distance_metric == 'chi_squared':
+        #     distance = cvpr_compare.dist_chi_squared(query_feature, features[i])
+        if run_configs.distance_metric == 'manhattan':
             distance = cvpr_compare.dist_manhattan(query_feature, features[i])        
-        elif config.distance_metric == 'euclidean':
+        elif run_configs.distance_metric == 'euclidean':
             distance = cvpr_compare.dist_euclidean(query_feature, features[i])
-        elif config.distance_metric == 'mahalanobis':
+        elif run_configs.distance_metric == 'mahalanobis':
             distance = cvpr_compare.dist_mahalanobis(query_feature, features[i], cov_inv)
-        elif config.distance_metric == 'chi_squared':
+        elif run_configs.distance_metric == 'chi_squared':
             distance = cvpr_compare.dist_chi_squared(query_feature, features[i])
+
 
         # is_same_class = os.path.basename(all_files[query_image_index]).split('_')[0] == os.path.basename(all_files[i]).split('_')[0]
         distance_list.append(distance)
@@ -260,11 +269,13 @@ def main(run_configs):
     """
     output_descriptor_folder = os.path.join(config.output_folder, config.output_subfolder)
     output_plots_folder = os.path.join(config.output_folder, config.output_plots_subfolder)
+    output_metrics_folder = os.path.join(config.output_folder, config.output_metrics_subfolder)
     os.makedirs(output_descriptor_folder, exist_ok=True)
     os.makedirs(output_plots_folder, exist_ok=True)
+    os.makedirs(output_metrics_folder, exist_ok=True)
     remove_descriptor_files()
 
-    all_files, all_labels, all_features = load_dataset()
+    all_files, all_labels, all_features = load_dataset(run_configs)
     cov_inv = None
     if config.use_pca:
         all_features, cov_inv = compute_pca(all_features)
@@ -276,7 +287,7 @@ def main(run_configs):
     
     print("\nCalculating Precision and Recall metrics...")
     for index in tqdm(range(len(all_files)), desc = "     Calculating: "):
-        precisions, recalls, predicted_label, print_row = run_image_search(index, all_labels, all_features, print_query_indeces, cov_inv)
+        precisions, recalls, predicted_label, print_row = run_image_search(index, all_labels, all_features, print_query_indeces, run_configs, cov_inv)
 
         if print_row is not None:
             query_result_print_data.append(get_image_result_row(print_row, all_files, all_labels ))
