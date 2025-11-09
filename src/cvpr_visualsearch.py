@@ -55,4 +55,3 @@ for i in range(SHOW):
     cv2.imshow(f"Result {i+1}", img)
     cv2.waitKey(0)
 cv2.destroyAllWindows()
-

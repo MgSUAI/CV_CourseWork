@@ -9,8 +9,9 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from sklearn.metrics import precision_recall_curve, average_precision_score
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-from cvpr_computedescriptors import compute_descriptors
-from cvpr_compare import cvpr_compare
+from tqdm import tqdm
+from cvpr_computedescriptors import compute_descriptors, compute_pca
+import cvpr_compare
 import results_image_printer
 
 
@@ -35,7 +36,7 @@ def get_index_per_class(labels):
     # For each unique number, pick one random index where it occurs
     selected_indices = []
     for label in unique_labels:
-        indices = np.where(labels == label)[0]          # all indices for this value
+        indices = np.where(labels == label)[0]     # all indices for this value
         chosen = np.random.choice(indices)         # pick one randomly
         selected_indices.append(chosen)
 
@@ -65,21 +66,27 @@ def load_dataset():
     """
     all_features, all_files, all_labels = [], [], []
 
-    for filename in os.listdir(os.path.join(config.output_folder, config.output_subfolder)):
-        if filename.endswith('.mat'):
-            image_descriptor_path = os.path.join(config.output_folder, config.output_subfolder, filename)
-            image_descriptor_data = sio.loadmat(image_descriptor_path)
-            image_path = os.path.join(config.dataset_folder, config.dataset_images_subfolder, filename.replace('.mat', '.bmp'))  
+    # for filename in os.listdir(os.path.join(config.output_folder, config.output_subfolder)):
+    #     if filename.endswith('.mat'):
+    #         image_descriptor_path = os.path.join(config.output_folder, config.output_subfolder, filename)
+    #         image_descriptor_data = sio.loadmat(image_descriptor_path)
+    #         image_path = os.path.join(config.dataset_folder, config.dataset_images_subfolder, filename.replace('.mat', '.bmp'))  
 
-            all_files.append(image_path)
-            all_features.append(image_descriptor_data['F'][0])  # F is a 1D array
-            all_labels.append(get_class_from_filename(filename))
+    #         all_files.append(image_path)
+    #         all_features.append(image_descriptor_data['F'][0])  # F is a 1D array
+    #         all_labels.append(get_class_from_filename(filename))
+
+    descriptor_list = compute_descriptors()
+    for descriptor in descriptor_list:
+        file_path, feature = descriptor
+        all_files.append(file_path)
+        all_features.append(feature)
+        all_labels.append(get_class_from_filename(os.path.basename(file_path)))
 
     return np.array(all_files), np.array(all_labels), all_features
 
 
-## todo: update args
-def image_search_global_histogram(query_index, labels, features, print_query_indices):
+def run_image_search(query_index, labels, features, print_query_indices, cov_inv = None):
     """
     Perform image search using global histogram features and compute precision-recall metrics.
 
@@ -96,27 +103,27 @@ def image_search_global_histogram(query_index, labels, features, print_query_ind
             - print_query_indices (np.ndarray): Array of one index per image class, used to print results
     """
     # Compute the distance between the query and all other descriptors
+
     distance_list = []
     query_feature = features[query_index]
     query_label = labels[query_index]
 
     for i in range(len(features)):
-        
-        distance = cvpr_compare(query_feature, features[i])
+
+        if config.distance_metric == 'manhattan':
+            distance = cvpr_compare.dist_manhattan(query_feature, features[i])        
+        elif config.distance_metric == 'euclidean':
+            distance = cvpr_compare.dist_euclidean(query_feature, features[i])
+        elif config.distance_metric == 'mahalanobis':
+            distance = cvpr_compare.dist_mahalanobis(query_feature, features[i], cov_inv)
+        elif config.distance_metric == 'chi_squared':
+            distance = cvpr_compare.dist_chi_squared(query_feature, features[i])
+
         # is_same_class = os.path.basename(all_files[query_image_index]).split('_')[0] == os.path.basename(all_files[i]).split('_')[0]
         distance_list.append(distance)
 
-
     sorted_indices = np.argsort(distance_list)[1:]  # Exclude the query itself
     predicted_labels = labels[sorted_indices]
-
-    # # print images 
-    # if query_index == image_index_to_print:
-    #     result_image_paths = [file_paths[query_index]]  # include query image first
-    #     for i in range(10):
-    #         result_image_path = file_paths[sorted_indices[i]]   
-    #         result_image_paths.append(result_image_path) 
-    #     show_images_matplot(result_image_paths)
 
     if query_index in print_query_indices:
         # print_row = np.array(query_index)
@@ -141,13 +148,9 @@ def image_search_global_histogram(query_index, labels, features, print_query_ind
         precisions.append(precision)
         recalls.append(recall)
 
-    # use the mode of first 5 predicted labels as the final predicted label
-    predicted_label = stats.mode(predicted_labels[0:5])[0]
+    # use the mode of first 10 predicted labels as the final predicted label
+    predicted_label = stats.mode(predicted_labels[0:10])[0]
     return np.array(precisions), np.array(recalls), predicted_label, print_row
-
-
-################
-
 
 
 def show_images_matplot(image_paths):
@@ -171,7 +174,8 @@ def show_images_matplot(image_paths):
 
     # Adjust layout for better spacing
     plt.tight_layout()
-    plt.show()
+    if config.display_plots:
+        plt.show()
 
 
 def remove_descriptor_files():
@@ -196,7 +200,7 @@ def plot_pr_curve(recall_points, mean_precision, mean_average_precision):
         mean_average_precision (float): Mean Average Precision value
 
     Returns:
-        None: Saves the plot as 'pr_curve.png' and displays it
+        None: Saves the plot as 'plt_pr_curve.png' and displays it
     """
     plt.figure(figsize=(8, 6))
     plt.plot(recall_points, mean_precision, color='blue', label=f"Mean PR (mAP = {mean_average_precision:.3f})")
@@ -206,11 +210,13 @@ def plot_pr_curve(recall_points, mean_precision, mean_average_precision):
     plt.title("Mean Precision–Recall Curve (All Queries)")
     plt.legend()
     plt.grid(True)
-    plt.savefig("pr_curve.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    plt.savefig("plt_pr_curve.png", dpi=300, bbox_inches="tight")
+
+    if config.display_plots:
+        plt.show()
 
     print(f"Mean Average Precision (mAP): {mean_average_precision:.4f}")
-    print("Precision–Recall curve saved as pr_curve.png")
+    print("Precision–Recall curve saved as plt_pr_curve.png")
 
 
 def plot_confusion_matrix(y_true, y_pred, unique_classes):
@@ -223,19 +229,19 @@ def plot_confusion_matrix(y_true, y_pred, unique_classes):
         unique_classes (list): List of all unique class labels
 
     Returns:
-        None: Saves the plot as 'confusion_matrix.png' and displays it
+        None: Saves the plot as 'plt_confusion_matrix.png' and displays it
     """
     cm = confusion_matrix(y_true, y_pred, labels=unique_classes)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=unique_classes)
 
-    # plt.figure(figsize=(15, 15))
-    # disp.plot(cmap='Blues', xticks_rotation=45, colorbar=True)
     disp.plot(cmap='Reds', xticks_rotation=45, colorbar=True)
     plt.title("Confusion Matrix (Top-5 Predicted Class per Query)")
-    plt.savefig("confusion_matrix.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    plt.savefig("plt_confusion_matrix.png", dpi=300, bbox_inches="tight")
+    
+    if config.display_plots:
+        plt.show()
 
-    print("Confusion matrix saved as confusion_matrix.png")
+    print("Confusion matrix saved as plt_confusion_matrix.png")
 
 
 def main():
@@ -256,20 +262,19 @@ def main():
     os.makedirs(output_subfolder, exist_ok=True)
     remove_descriptor_files()
 
-    # compute_descriptors('color_histogram', num_bins=config.num_bins)
-    compute_descriptors('compute_grid_color_histogram'
-                        , num_bins=config.num_bins
-                        , grid_rows=config.grid_rows
-                        , grid_cols=config.grid_cols)
-    
     all_files, all_labels, all_features = load_dataset()
+    cov_inv = None
+    if config.use_pca:
+        all_features, cov_inv = compute_pca(all_features)
 
     print_query_indeces = get_index_per_class(all_labels)
     
     all_precisions, all_recalls, y_true, y_pred = [], [], [], []
     query_result_print_data = []
-    for index in range(len(all_files)):
-        precisions, recalls, predicted_label, print_row = image_search_global_histogram(index, all_labels, all_features, print_query_indeces)
+    
+    print("\nCalculating Precision and Recall metrics...")
+    for index in tqdm(range(len(all_files)), desc = "     Calculating: "):
+        precisions, recalls, predicted_label, print_row = run_image_search(index, all_labels, all_features, print_query_indeces, cov_inv)
 
         if print_row is not None:
             query_result_print_data.append(get_image_result_row(print_row, all_files, all_labels ))
@@ -278,9 +283,6 @@ def main():
         all_recalls.append(recalls)
         y_true.append(all_labels[index])
         y_pred.append(predicted_label)
-
-        if (index + 1) % 50 == 0:
-            print(f"Processed {index + 1}/{len(all_files)} queries...")
 
     results_image_printer.image_printer(query_result_print_data)
 
@@ -300,7 +302,5 @@ def main():
     plot_confusion_matrix(y_true, y_pred, unique_classes)
 
 
-
 if __name__ == '__main__':
     main()
-

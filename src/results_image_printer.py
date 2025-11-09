@@ -89,7 +89,12 @@ def image_printer(image_groups):
     plt.imshow(final_rgb)
     plt.axis("off")
     plt.title("Images (300x200) with Labels Inside")
-    plt.show()
+    plt.savefig("plt_Results.png", dpi=300, bbox_inches="tight")
+    
+    if config.display_plots:
+        plt.show()
+
+    print("Search result sample saved in plt_Results.png")
 
 
 if __name__ == '__main__':
