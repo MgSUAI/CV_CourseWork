@@ -67,18 +67,48 @@ def compute_descriptors(run_configs):
     return descriptor_list            
 
 
-def compute_pca(descriptors):
-    print("Computing PCA and covariance matrix")
+def compute_covariance_matrix(descriptors):
+    """
+    Compute the covariance matrix and its inverse for the given descriptors.
+    This is needed for Mahalanobis distance calculation.
+
+    Args:
+        descriptors (list): List of feature descriptors
+
+    Returns:
+        numpy.ndarray: Inverse of the covariance matrix
+    """
+    print("Computing covariance matrix for Mahalanobis distance...")
+    # Convert list of descriptors to 2D numpy array if not already
+    if isinstance(descriptors, list):
+        descriptors = np.array(descriptors)
+    
+    # Compute covariance matrix
+    cov = np.cov(descriptors, rowvar=False)
+    # Add small constant to diagonal to ensure matrix is invertible
+    cov += np.eye(cov.shape[0]) * 1e-6
+    cov_inv = np.linalg.inv(cov)
+    
+    return cov_inv
+
+
+def compute_pca(descriptors, run_configs):
+    """
+    Apply PCA dimensionality reduction to the descriptors.
+    
+    Args:
+        descriptors (list): List of feature descriptors
+        run_configs: Configuration object containing PCA parameters
+        
+    Returns:
+        numpy.ndarray: PCA-transformed descriptors
+    """
+    print(f"Applying PCA reduction to {run_configs.pca_components} components...")
     # Reduce descriptors to lower dimension
     pca = PCA(n_components=run_configs.pca_components)
     descriptors_pca = pca.fit_transform(descriptors)
-    # query_desc_pca = pca.transform([query_desc])[0]
-
-    # Compute covariance matrix of PCA-reduced descriptors
-    cov = np.cov(descriptors_pca, rowvar=False)
-    cov_inv = np.linalg.inv(cov)
-
-    return descriptors_pca, cov_inv
+    
+    return descriptors_pca
 
 
 if __name__ == "__main__":

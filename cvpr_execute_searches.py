@@ -10,7 +10,8 @@ import matplotlib.image as mpimg
 from sklearn.metrics import precision_recall_curve, average_precision_score
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from tqdm import tqdm
-from cvpr_computedescriptors import compute_descriptors, compute_pca
+from types import SimpleNamespace
+import cvpr_computedescriptors # import compute_descriptors, compute_pca
 import cvpr_compare
 import results_image_printer
 
@@ -76,7 +77,7 @@ def load_dataset(run_configs):
     #         all_features.append(image_descriptor_data['F'][0])  # F is a 1D array
     #         all_labels.append(get_class_from_filename(filename))
 
-    descriptor_list = compute_descriptors(run_configs)
+    descriptor_list = cvpr_computedescriptors.compute_descriptors(run_configs)
     for descriptor in descriptor_list:
         file_path, feature = descriptor
         all_files.append(file_path)
@@ -199,33 +200,53 @@ def remove_descriptor_files():
             os.remove(file_path)
 
 
-def plot_pr_curve(recall_points, mean_precision, mean_average_precision):
+def plot_pr_curves(metric_results, output_folder):
     """
-    Plot and save the precision-recall curve for the image retrieval results.
+    Plot and save the precision-recall curves for multiple distance metrics on the same plot.
 
     Args:
-        recall_points (np.ndarray): Array of recall points
-        mean_precision (np.ndarray): Array of mean precision values
-        mean_average_precision (float): Mean Average Precision value
+        metric_results (dict): Dictionary containing results for each metric with structure:
+            {
+                'metric_name': {
+                    'recall_points': np.ndarray,
+                    'mean_precision': np.ndarray,
+                    'mean_average_precision': float
+                }
+            }
+        output_folder (str): Directory where the plot image will be saved
 
     Returns:
-        None: Saves the plot as 'plt_pr_curve.png' and displays it
+        None: Saves the plot as 'plt_pr_curves_comparison.png' in the given output folder
     """
-    plt.figure(figsize=(8, 6))
-    plt.plot(recall_points, mean_precision, color='blue', label=f"Mean PR (mAP = {mean_average_precision:.3f})")
+    colors = {
+        'manhattan': 'blue',
+        'euclidean': 'red',
+        'chi_squared': 'green',
+        'mahalanobis': 'purple'
+    }
+    
+    plt.figure(figsize=(10, 8))
+    
+    for metric_name, results in metric_results.items():
+        color = colors.get(metric_name, None)
+        plt.plot(results['recall_points'], 
+                 results['mean_precision'], 
+                 color=color, 
+                 label=f"{metric_name} (mAP = {results['mean_average_precision']:.3f})")
+
     plt.axis([0, 1, 0, 1])
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title("Mean Precision–Recall Curve (All Queries)")
+    plt.title(f"Mean Precision–Recall Curves Comparison\n({run_configs.descriptor_type if 'run_configs' in globals() else ''})")
     plt.legend()
     plt.grid(True)
-    plt.savefig("plt_pr_curve.png", dpi=300, bbox_inches="tight")
+    out_path = os.path.join(output_folder, "plt_pr_curves_comparison.png")
+    plt.savefig(out_path, dpi=300, bbox_inches="tight")
 
     if config.display_plots:
         plt.show()
 
-    print(f"Mean Average Precision (mAP): {mean_average_precision:.4f}")
-    print("Precision–Recall curve saved as plt_pr_curve.png")
+    print(f"Combined Precision–Recall curves saved as {out_path}")
 
 
 def plot_confusion_matrix(y_true, y_pred, unique_classes):
@@ -260,9 +281,9 @@ def main(run_configs):
     This function:
     1. Sets up the output directory
     2. Computes image descriptors
-    3. Performs image search for each image in the dataset
-    4. Computes and plots precision-recall metrics
-    5. Creates and saves confusion matrix
+    3. Performs image search using multiple distance metrics
+    4. Computes and plots combined precision-recall metrics
+    5. Creates and saves confusion matrix for best performing metric
     
     Returns:
         None
@@ -275,47 +296,94 @@ def main(run_configs):
     os.makedirs(output_metrics_folder, exist_ok=True)
     remove_descriptor_files()
 
+    # Load dataset once
     all_files, all_labels, all_features = load_dataset(run_configs)
-    cov_inv = None
+    
+    # Apply PCA if configured
     if config.use_pca:
-        all_features, cov_inv = compute_pca(all_features)
-
-    print_query_indeces = get_index_per_class(all_labels)
+        all_features = cvpr_computedescriptors.compute_pca(all_features, run_configs)
     
-    all_precisions, all_recalls, y_true, y_pred = [], [], [], []
-    query_result_print_data = []
+    # Always compute covariance matrix for Mahalanobis distance
+    cov_inv = cvpr_computedescriptors.compute_covariance_matrix(all_features)
+
+    print_query_indices = get_index_per_class(all_labels)
     
-    print("\nCalculating Precision and Recall metrics...")
-    for index in tqdm(range(len(all_files)), desc = "     Calculating: "):
-        precisions, recalls, predicted_label, print_row = run_image_search(index, all_labels, all_features, print_query_indeces, run_configs, cov_inv)
+    # Dictionary to store results for each distance metric
+    metric_results = {}
+    distance_metrics = ['manhattan', 'euclidean', 'chi_squared', 'mahalanobis']
+    best_map = -1
+    best_metric = None
+    best_results = None  # To store results for confusion matrix
 
-        if print_row is not None:
-            query_result_print_data.append(get_image_result_row(print_row, all_files, all_labels ))
+    # Run evaluation for each distance metric
+    for metric in distance_metrics:
+        print(f"\nEvaluating {metric} distance metric...")
+        run_configs.distance_metric = metric
+        
+        all_precisions, all_recalls, y_true, y_pred = [], [], [], []
+        query_result_print_data = []
+        
+        for index in tqdm(range(len(all_files)), desc="     Calculating: "):
+            precisions, recalls, predicted_label, print_row = run_image_search(index, all_labels, all_features, print_query_indices, run_configs, cov_inv)
+            
+            if precisions is not None:  # Skip if no results
+                all_precisions.append(precisions)
+                all_recalls.append(recalls)
+                y_true.append(all_labels[index])
+                y_pred.append(predicted_label)
 
-        all_precisions.append(precisions)
-        all_recalls.append(recalls)
-        y_true.append(all_labels[index])
-        y_pred.append(predicted_label)
+                if print_row is not None and metric == distance_metrics[0]:  # Only print for first metric
+                    query_result_print_data.append(get_image_result_row(print_row, all_files, all_labels))
 
-    results_image_printer.image_printer(query_result_print_data)
+        # Calculate average precision-recall
+        recall_points = np.linspace(0, 1.0, 11)
+        interp_precisions = []
 
-    # --- AVERAGE PRECISION-RECALL ---
-    recall_points = np.linspace(0, 1.0, 11)
-    interp_precisions = []
+        for precisions, recalls in zip(all_precisions, all_recalls):
+            interp = np.interp(recall_points, recalls, precisions)
+            interp_precisions.append(interp)
 
-    for precisions, recalls in zip(all_precisions, all_recalls):
-        interp = np.interp(recall_points, recalls, precisions)
-        interp_precisions.append(interp)
+        mean_precision = np.mean(interp_precisions, axis=0)
+        mean_average_precision = np.mean([np.mean(p) for p in interp_precisions])
 
-    mean_precision = np.mean(interp_precisions, axis=0)
-    mean_average_precision = np.mean([np.mean(p) for p in interp_precisions])
-    plot_pr_curve(recall_points, mean_precision, mean_average_precision)
+        metric_results[metric] = {
+            'recall_points': recall_points,
+            'mean_precision': mean_precision,
+            'mean_average_precision': mean_average_precision
+        }
 
+        # Keep track of best performing metric for confusion matrix
+        if mean_average_precision > best_map:
+            best_map = mean_average_precision
+            best_metric = metric
+            best_results = (y_true, y_pred)
+
+        # Print results for each metric
+        print(f"{metric} Mean Average Precision (mAP): {mean_average_precision:.4f}")
+
+    # Print results from first metric run
+    if query_result_print_data:
+        results_image_printer.image_printer(query_result_print_data)
+
+    # Plot combined PR curves
+    plot_pr_curves(metric_results, output_plots_folder)
+    
+    # Plot confusion matrix for best performing metric
+    print(f"\nGenerating confusion matrix for best performing metric: {best_metric}")
     unique_classes = sorted(list(set(all_labels)))
-    plot_confusion_matrix(y_true, y_pred, unique_classes)
+    plot_confusion_matrix(best_results[0], best_results[1], unique_classes)
 
 
 if __name__ == '__main__':
-    run_configs = None
+
+    run_configs = {
+        'descriptor_type': 'grid_color_histogram',
+        'num_bins': 4,
+        'grid_rows': 8,
+        'grid_cols': 8,
+        'distance_metric': 'euclidean'
+    }
+
+    run_configs = SimpleNamespace(**run_configs)
     main(run_configs)
 1   
