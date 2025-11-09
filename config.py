@@ -2,8 +2,10 @@ import os
 
 dataset_folder = os.path.realpath('db/MSRC_ObjCategImageDatabase_v2')
 dataset_images_subfolder = 'Images'
-output_folder = os.path.realpath('output/descriptors')
-output_subfolder = 'globalRGBhisto'
+output_folder = os.path.realpath('output')
+output_subfolder = 'descriptors/globalRGBhisto'
+output_plots_subfolder = 'plots'
+
 
 num_result_images_to_print = 10
 

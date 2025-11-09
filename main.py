@@ -244,7 +244,7 @@ def plot_confusion_matrix(y_true, y_pred, unique_classes):
     print("Confusion matrix saved as plt_confusion_matrix.png")
 
 
-def main():
+def main(run_configs):
     """
     Main function that orchestrates the image retrieval and evaluation process.
     
@@ -258,8 +258,10 @@ def main():
     Returns:
         None
     """
-    output_subfolder = os.path.join(config.output_folder, config.output_subfolder)
-    os.makedirs(output_subfolder, exist_ok=True)
+    output_descriptor_folder = os.path.join(config.output_folder, config.output_subfolder)
+    output_plots_folder = os.path.join(config.output_folder, config.output_plots_subfolder)
+    os.makedirs(output_descriptor_folder, exist_ok=True)
+    os.makedirs(output_plots_folder, exist_ok=True)
     remove_descriptor_files()
 
     all_files, all_labels, all_features = load_dataset()
@@ -303,4 +305,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    run_configs = None
+    main(run_configs)
+1   
