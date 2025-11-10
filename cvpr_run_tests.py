@@ -124,7 +124,7 @@ def run_eoh_plus_ch_tests(use_pca=False, pca_components_list=[20, 40, 60, 80, 10
     grid_sizes_list = [4, 8, 12, 16] 
     weight_eoh_list = [0.2, 0.4, 0.5, 0.6, 0.8]
 
-    for eoh_bin in range(eoh_bins_list):
+    for eoh_bin in eoh_bins_list:
         run_configs_dict['eoh_bins'] = eoh_bin
         for gch_bin in gch_bins_list:
             run_configs_dict['gch_bins'] = gch_bin
@@ -147,9 +147,9 @@ def run_eoh_plus_ch_tests(use_pca=False, pca_components_list=[20, 40, 60, 80, 10
 if __name__ == "__main__":
 
     try:
-        # run_gch_tests(use_pca=False)
+        run_gch_tests(use_pca=False)
         # run_spatial_gch_tests(False)
-        run_eoh_tests()
+        # run_eoh_tests()
         # run_eoh_plus_ch_tests()
 
     

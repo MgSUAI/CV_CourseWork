@@ -126,7 +126,6 @@ def run_image_search(query_index, labels, features, print_query_indices, run_con
             - print_query_indices (np.ndarray): Array of one index per image class, used to print results
     """
     # Compute the distance between the query and all other descriptors
-
     distance_list = []
     query_feature = features[query_index]
     query_label = labels[query_index]
@@ -160,13 +159,21 @@ def run_image_search(query_index, labels, features, print_query_indices, run_con
     precisions, recalls = [], []
     retrieved_relevant = 0
 
-    for i, rel in enumerate(relevances, start=1):
+    # Only consider top config.top_n_results results for calcuation precision and recall
+    for i, rel in enumerate(relevances[:config.top_n_results], start=1):
         if rel == 1:
             retrieved_relevant += 1
         precision = retrieved_relevant / i
-        recall = retrieved_relevant / (total_relevant) 
+        recall = retrieved_relevant / total_relevant 
         precisions.append(precision)
         recalls.append(recall)
+    
+    # Pad with last values if less than config.ton_n_results results
+    last_precision = precisions[-1] if precisions else 0
+    last_recall = recalls[-1] if recalls else 0
+    while len(precisions) < config.top_n_results:
+        precisions.append(last_precision)
+        recalls.append(last_recall)
 
     # use the mode of first 10 predicted labels as the final predicted label
     predicted_label = stats.mode(predicted_labels[0:10])[0]
@@ -291,11 +298,12 @@ def plot_pr_curves(metric_results, output_folder, run_configs):
                  color=color, 
                  label=f"{metric_name} (mAP = {results['mean_average_precision']:.3f})")
 
-    plt.axis([0, 1, 0, 1])
+    recall_max = np.ceil(np.array([metric_results[k]['recall_points'].max() for k in metric_results]).max() * 10)/10
+    plt.axis([0, recall_max, 0, 1])
     plt.xlabel("Recall")
     plt.ylabel("Precision")
 
-    plot_title = "Mean PR Curves Comparison using\n" \
+    plot_title = f"Mean PR Curves for Top {config.top_n_results} Results using\n" \
                  + f'{run_configs.descriptor_name} Image Descriptor\n' \
                  + (('Bins = ' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
                  + (('; EOH Bins = ' + str(run_configs.eoh_bins)) if hasattr(run_configs, 'eoh_bins') else '') \
@@ -450,16 +458,29 @@ def main(run_configs):
                 if print_row is not None and metric == distance_metrics[0]:  # Only print for first metric
                     query_result_print_data.append(get_image_result_row(print_row, all_files, all_labels))
 
-        # Calculate average precision-recall
-        recall_points = np.linspace(0, 1.0, 11)
-        interp_precisions = []
+        # Calculate average precision-recall WITHOUT interpolation
+        # all_precisions and all_recalls contain per-query precision/recall
+        # values for the top-10 results (padded to length 10). We compute
+        # mean precision and mean recall at each rank and use the mean of
+        # per-query mean-precisions as the mAP (top-10 average precision).
+        if len(all_precisions) == 0:
+            # No valid queries for this metric (e.g., classes skipped due to single-image)
+            recall_points = np.zeros(10)
+            mean_precision = np.zeros(10)
+            mean_average_precision = 0.0
+        else:
+            all_precisions_arr = np.array(all_precisions)  # shape: (n_queries, 10)
+            all_recalls_arr = np.array(all_recalls)        # shape: (n_queries, 10)
 
-        for precisions, recalls in zip(all_precisions, all_recalls):
-            interp = np.interp(recall_points, recalls, precisions)
-            interp_precisions.append(interp)
+            # Mean precision at each rank (1..10)
+            mean_precision = np.mean(all_precisions_arr, axis=0)
 
-        mean_precision = np.mean(interp_precisions, axis=0)
-        mean_average_precision = np.mean([np.mean(p) for p in interp_precisions])
+            # Mean recall at each rank (1..10) - used as x-axis values for the plot
+            recall_points = np.mean(all_recalls_arr, axis=0)
+
+            # Per-query AP approximated as mean precision across the top-10 ranks
+            per_query_ap = np.mean(all_precisions_arr, axis=1)
+            mean_average_precision = float(np.mean(per_query_ap))
 
         metric_results[metric] = {
             'recall_points': recall_points,
