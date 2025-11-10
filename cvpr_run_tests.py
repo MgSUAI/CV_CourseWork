@@ -100,11 +100,12 @@ def run_eoh_plus_ch_tests(use_pca=False):
 if __name__ == "__main__":
 
     try:
+        # run_gch_tests()
+        # run_spatial_gch_tests()
+        # run_eoh_tests()
         run_eoh_plus_ch_tests()
 
-        
-
-
+    
     except Exception as e:
         print("An error occurred during execution:")
         traceback.print_exc()

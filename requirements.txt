@@ -5,3 +5,4 @@ pip3-autoremove
 scikit-learn
 matplotlib 
 tqdm
+pandas

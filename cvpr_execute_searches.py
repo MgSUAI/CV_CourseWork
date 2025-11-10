@@ -293,22 +293,29 @@ def plot_pr_curves(metric_results, output_folder, run_configs):
     plt.axis([0, 1, 0, 1])
     plt.xlabel("Recall")
     plt.ylabel("Precision")
+
     plot_title = "Mean PR Curves Comparison using\n" \
                  + f'{run_configs.descriptor_name} Image Descriptor\n' \
                  + (('Bins = ' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
+                 + (('; EOH Bins = ' + str(run_configs.eoh_bins)) if hasattr(run_configs, 'eoh_bins') else '') \
+                 + (('; GCH Bins = ' + str(run_configs.gch_bins)) if hasattr(run_configs, 'gch_bins') else '') \
+                 + (('; EOH Weight = ' + str(run_configs.weight_eoh)) if hasattr(run_configs, 'weight_eoh') else '') \
                  + ('; Grid = ' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '')\
                  + ('; PCA = ' + str(run_configs.pca_components) if run_configs.use_pca else '') 
-                #  + ('; PCA = ' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components') else '') 
-    plt.title(plot_title)
-    plt.legend()
-    plt.grid(True)
 
     plot_filename = "pr_curves_" \
                 + run_configs.descriptor_type \
                 + (('_bins' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
+                + (('_eoh_bins' + str(run_configs.eoh_bins)) if hasattr(run_configs, 'eoh_bins') else '') \
+                + (('_gch_bins' + str(run_configs.gch_bins)) if hasattr(run_configs, 'gch_bins') else '') \
+                + (('_eoh_weight' + str(run_configs.weight_eoh)) if hasattr(run_configs, 'weight_eoh') else '') \
                 + ('_grid' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '') \
-                + ('_pca' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components') else '') \
+                + ('_pca' + str(run_configs.pca_components) if run_configs.use_pca else '')  \
                 + '.png'
+    
+    plt.title(plot_title)
+    plt.legend()
+    plt.grid(True)
 
     out_path = os.path.join(output_folder, plot_filename)
     plt.savefig(out_path, dpi=300, bbox_inches="tight")
@@ -342,6 +349,9 @@ def plot_confusion_matrix(y_true, y_pred, unique_classes, output_folder, run_con
     plot_title = f"Confusion Matrix using\n" \
                  + f'{run_configs.descriptor_name} Image Descriptor\n' \
                  + (('Bins = ' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
+                 + (('; EOH Bins = ' + str(run_configs.eoh_bins)) if hasattr(run_configs, 'eoh_bins') else '') \
+                 + (('; GCH Bins = ' + str(run_configs.gch_bins)) if hasattr(run_configs, 'gch_bins') else '') \
+                 + (('; EOH Weight = ' + str(run_configs.weight_eoh)) if hasattr(run_configs, 'weight_eoh') else '')\
                  + ('; Grid = ' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '')\
                  + ('; PCA = ' + str(run_configs.pca_components) if run_configs.use_pca else '') 
                 #  + ('; PCA = ' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components')  else '') 
@@ -350,8 +360,11 @@ def plot_confusion_matrix(y_true, y_pred, unique_classes, output_folder, run_con
                 + '_' + run_configs.descriptor_type \
                 + '_' + distance_metric \
                 + (('_bins' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
+                + (('_eoh_bins' + str(run_configs.eoh_bins)) if hasattr(run_configs, 'eoh_bins') else '') \
+                + (('_gch_bins' + str(run_configs.gch_bins)) if hasattr(run_configs, 'gch_bins') else '') \
+                + (('_eoh_weight' + str(run_configs.weight_eoh)) if hasattr(run_configs, 'weight_eoh') else '') \
                 + ('_grid' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '') \
-                + ('_pca' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components') else '') \
+                + ('_pca' + str(run_configs.pca_components) if run_configs.use_pca else '') \
                 + '.png'    
 
     ax.set_title(plot_title)
