@@ -261,9 +261,10 @@ def plot_pr_curves(metric_results, output_folder, run_configs):
 
     out_path = os.path.join(output_folder, plot_filename)
     plt.savefig(out_path, dpi=300, bbox_inches="tight")
-
+    # Display the plot only when config.display_plots is True
     if config.display_plots:
         plt.show()
+    plt.close()
 
     print(f"Combined Precision–Recall curves saved as {out_path}")
 
@@ -283,8 +284,9 @@ def plot_confusion_matrix(y_true, y_pred, unique_classes, output_folder, run_con
     cm = confusion_matrix(y_true, y_pred, labels=unique_classes)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=unique_classes)
 
-    if config.display_plots:
-        disp.plot(cmap='Reds', xticks_rotation=45, colorbar=True)
+    # Create a figure and plot the confusion matrix 
+    fig, ax = plt.subplots(figsize=(10, 10))
+    disp.plot(ax=ax, cmap='Reds', xticks_rotation=45, colorbar=True)
 
     plot_title = f"Confusion Matrix using\n" \
                  + f'{run_configs.descriptor_name} Image Descriptor\n' \
@@ -300,15 +302,17 @@ def plot_confusion_matrix(y_true, y_pred, unique_classes, output_folder, run_con
                 + ('_grid' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '') \
                 + ('_pca' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components') else '') \
                 + '.png'    
-    
-    plt.title(plot_title)
-    out_path = os.path.join(output_folder, plot_filename)    
-    plt.savefig(out_path, dpi=300, bbox_inches="tight")
-    
+
+    ax.set_title(plot_title)
+    out_path = os.path.join(output_folder, plot_filename)
+    fig.savefig(out_path, dpi=300, bbox_inches="tight")
+
+    # Display the plot only when config.display_plots is True
     if config.display_plots:
         plt.show()
+    plt.close(fig)
 
-    print("Confusion matrix saved as plt_confusion_matrix.png")
+    print(f"Confusion matrix saved as {out_path}")
 
 
 def main(run_configs):
