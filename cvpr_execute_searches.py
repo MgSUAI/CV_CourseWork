@@ -1,5 +1,7 @@
 import config
 import os
+import csv
+import datetime
 from random import randint
 import numpy as np
 import scipy.io as sio
@@ -208,6 +210,55 @@ def remove_descriptor_files():
             os.remove(file_path)
 
 
+def save_metrics_to_csv(run_configs, metric_name, map_value, output_folder):
+    """
+    Save metrics results to a CSV file.
+
+    Args:
+        run_configs: Configuration object containing descriptor settings
+        metric_name (str): Name of the distance metric used
+        map_value (float): Mean Average Precision value
+        output_folder (str): Directory where the CSV file will be saved
+    """
+    # Create filename based on descriptor type
+    csv_filename = f"{run_configs.descriptor_type}_results.csv"
+    csv_path = os.path.join(output_folder, csv_filename)
+    
+    # Determine if we need to create header
+    file_exists = os.path.exists(csv_path)
+    
+    # Prepare row data
+    row_data = {
+        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'descriptor_name': run_configs.descriptor_name,
+        'distance_metric': metric_name,
+        'mAP': f"{map_value:.4f}"
+    }
+    
+    # Add quantization metrics if they exist
+    if hasattr(run_configs, 'num_bins'):
+        row_data['num_bins'] = run_configs.num_bins
+    if hasattr(run_configs, 'grid_rows'):
+        row_data['grid_rows'] = run_configs.grid_rows
+        row_data['grid_cols'] = run_configs.grid_cols
+    if hasattr(run_configs, 'eoh_bins'):
+        row_data['eoh_bins'] = run_configs.eoh_bins
+    if hasattr(run_configs, 'gch_bins'):
+        row_data['gch_bins'] = run_configs.gch_bins
+    if hasattr(run_configs, 'weight_eoh'):
+        row_data['weight_eoh'] = run_configs.weight_eoh
+        row_data['weight_color'] = run_configs.weight_color
+    if hasattr(run_configs, 'use_pca') and run_configs.use_pca:
+        row_data['pca_components'] = run_configs.pca_components
+    
+    # Write to CSV
+    with open(csv_path, mode='a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=list(row_data.keys()))
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row_data)
+
+
 def plot_pr_curves(metric_results, output_folder, run_configs):
     """
     Plot and save the precision-recall curves for multiple distance metrics on the same plot.
@@ -344,8 +395,10 @@ def main(run_configs):
     if run_configs.use_pca:
         all_features = cvpr_computedescriptors.compute_pca(all_features, run_configs)
     
-    # Always compute covariance matrix for Mahalanobis distance
-    cov_inv = cvpr_computedescriptors.compute_covariance_matrix(all_features)
+        # compute covariance matrix for Mahalanobis distance
+        cov_inv = cvpr_computedescriptors.compute_covariance_matrix(all_features)
+    else:
+        cov_inv = None
 
     print_query_indices = get_index_per_class(all_labels)
     
@@ -404,6 +457,8 @@ def main(run_configs):
 
         # Print results for each metric
         print(f"{metric} Mean Average Precision (mAP): {mean_average_precision:.4f}")
+        # Save metrics to CSV
+        save_metrics_to_csv(run_configs, metric, mean_average_precision, output_metrics_folder)
 
     # Print results from first metric run
     if query_result_print_data:
