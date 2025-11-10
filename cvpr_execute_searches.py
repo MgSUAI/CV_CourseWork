@@ -220,8 +220,9 @@ def save_metrics_to_csv(run_configs, metric_name, map_value, output_folder):
         map_value (float): Mean Average Precision value
         output_folder (str): Directory where the CSV file will be saved
     """
-    # Create filename based on descriptor type
-    csv_filename = f"{run_configs.descriptor_type}_results.csv"
+    # Create filename based on descriptor type and PCA usage
+    suffix = "_pca" if run_configs.use_pca else ""
+    csv_filename = f"{run_configs.descriptor_type}{suffix}_results.csv"
     csv_path = os.path.join(output_folder, csv_filename)
     
     # Determine if we need to create header
@@ -403,6 +404,10 @@ def main(run_configs):
 
     # Load dataset once
     all_files, all_labels, all_features = load_dataset(run_configs)
+
+
+    # if feature dimension is fewer than half the number of pca_components
+    run_configs.pca_components = min(run_configs.pca_components, int(0.5 * len(all_features[0])))
     
     # Apply PCA if use_pca is set to True
     if run_configs.use_pca:
