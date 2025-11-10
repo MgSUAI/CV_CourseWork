@@ -10,7 +10,7 @@ output_metrics_subfolder = 'metrics'
 num_result_images_to_print = 10
 
 # Choose whether to display plots or not. All plots are saved in file.
-display_plots = False
+display_plots = True
 
 distance_metric = 'euclidean'  # Options: 'manhattan', 'euclidean', 'mahalanobis', 'chi_squared'
 
@@ -51,6 +51,6 @@ distance_metric = 'euclidean'  # Options: 'manhattan', 'euclidean', 'mahalanobis
 
 
 #################################################
-use_pca = False
-pca_components = 10
+# use_pca = True
+# pca_components = 10
 #################################################

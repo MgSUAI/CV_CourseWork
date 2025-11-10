@@ -25,11 +25,11 @@ def dist_mahalanobis(F1, F2, cov_inv):
     """
     Compute the Mahalanobis distance between two feature descriptors.
     """
-    diff = F1 - F2
-    mdist_squared = diff.T @ cov_inv @ diff
-    mdist = np.sqrt(mdist_squared)
+    # diff = F1 - F2
+    # mdist_squared = diff.T @ cov_inv @ diff
+    # mdist = np.sqrt(mdist_squared)
 
-    # mdist = distance.mahalanobis(F1, F2, cov_inv)
+    mdist = distance.mahalanobis(F1, F2, cov_inv)
     return mdist
 
 

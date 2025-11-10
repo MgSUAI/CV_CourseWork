@@ -32,6 +32,7 @@ def get_class_from_filename(filename):
 
 def get_index_per_class(labels):
 
+    print("Selecting one image index per class for result printing.")
     unique_labels = np.unique(labels)
 
     # For each unique number, pick one random index where it occurs
@@ -53,6 +54,25 @@ def get_image_result_row(result_indices, files, labels):
         image_group_row.append((files[index], labels[index]))
 
     return image_group_row
+
+
+def get_plot_filename(run_configs):
+    """
+    Generate a filename for saving printed results based on run configurations.
+
+    Args:
+        run_configs: Configuration object containing descriptor and distance metric info
+    Returns:
+        str: Generated filename
+    """
+    filename = run_configs.descriptor_type \
+                + '_' + run_configs.distance_metric \
+                + (('_bins' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
+                + ('_pca' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components') else '') \
+                + ('_grid' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '') \
+                + '.png'
+
+    return filename    
 
 
 def load_dataset(run_configs):
@@ -110,15 +130,6 @@ def run_image_search(query_index, labels, features, print_query_indices, run_con
     query_label = labels[query_index]
 
     for i in range(len(features)):
-
-        # if config.distance_metric == 'manhattan':
-        #     distance = cvpr_compare.dist_manhattan(query_feature, features[i])        
-        # elif config.distance_metric == 'euclidean':
-        #     distance = cvpr_compare.dist_euclidean(query_feature, features[i])
-        # elif config.distance_metric == 'mahalanobis':
-        #     distance = cvpr_compare.dist_mahalanobis(query_feature, features[i], cov_inv)
-        # elif config.distance_metric == 'chi_squared':
-        #     distance = cvpr_compare.dist_chi_squared(query_feature, features[i])
         if run_configs.distance_metric == 'manhattan':
             distance = cvpr_compare.dist_manhattan(query_feature, features[i])        
         elif run_configs.distance_metric == 'euclidean':
@@ -128,15 +139,12 @@ def run_image_search(query_index, labels, features, print_query_indices, run_con
         elif run_configs.distance_metric == 'chi_squared':
             distance = cvpr_compare.dist_chi_squared(query_feature, features[i])
 
-
-        # is_same_class = os.path.basename(all_files[query_image_index]).split('_')[0] == os.path.basename(all_files[i]).split('_')[0]
         distance_list.append(distance)
 
     sorted_indices = np.argsort(distance_list)[1:]  # Exclude the query itself
     predicted_labels = labels[sorted_indices]
 
     if query_index in print_query_indices:
-        # print_row = np.array(query_index)
         print_row = np.append([query_index], sorted_indices[:config.num_result_images_to_print])
     else:
         print_row = None
@@ -200,7 +208,7 @@ def remove_descriptor_files():
             os.remove(file_path)
 
 
-def plot_pr_curves(metric_results, output_folder):
+def plot_pr_curves(metric_results, output_folder, run_configs):
     """
     Plot and save the precision-recall curves for multiple distance metrics on the same plot.
 
@@ -214,9 +222,6 @@ def plot_pr_curves(metric_results, output_folder):
                 }
             }
         output_folder (str): Directory where the plot image will be saved
-
-    Returns:
-        None: Saves the plot as 'plt_pr_curves_comparison.png' in the given output folder
     """
     colors = {
         'manhattan': 'blue',
@@ -237,10 +242,24 @@ def plot_pr_curves(metric_results, output_folder):
     plt.axis([0, 1, 0, 1])
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title(f"Mean Precision–Recall Curves Comparison\n({run_configs.descriptor_type if 'run_configs' in globals() else ''})")
+    plot_title = "Mean PR Curves Comparison using\n" \
+                 + f'{run_configs.descriptor_name} Image Descriptor\n' \
+                 + (('Bins = ' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
+                 + ('; Grid = ' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '')\
+                 + ('; PCA = ' + str(run_configs.pca_components) if run_configs.use_pca else '') 
+                #  + ('; PCA = ' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components') else '') 
+    plt.title(plot_title)
     plt.legend()
     plt.grid(True)
-    out_path = os.path.join(output_folder, "plt_pr_curves_comparison.png")
+
+    plot_filename = "pr_curves_" \
+                + run_configs.descriptor_type \
+                + (('_bins' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
+                + ('_grid' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '') \
+                + ('_pca' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components') else '') \
+                + '.png'
+
+    out_path = os.path.join(output_folder, plot_filename)
     plt.savefig(out_path, dpi=300, bbox_inches="tight")
 
     if config.display_plots:
@@ -249,7 +268,7 @@ def plot_pr_curves(metric_results, output_folder):
     print(f"Combined Precision–Recall curves saved as {out_path}")
 
 
-def plot_confusion_matrix(y_true, y_pred, unique_classes):
+def plot_confusion_matrix(y_true, y_pred, unique_classes, output_folder, run_configs, distance_metric):
     """
     Create and save a confusion matrix visualization for classification results.
 
@@ -259,14 +278,32 @@ def plot_confusion_matrix(y_true, y_pred, unique_classes):
         unique_classes (list): List of all unique class labels
 
     Returns:
-        None: Saves the plot as 'plt_confusion_matrix.png' and displays it
+        None: Saves the plot and displays it
     """
     cm = confusion_matrix(y_true, y_pred, labels=unique_classes)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=unique_classes)
 
-    disp.plot(cmap='Reds', xticks_rotation=45, colorbar=True)
-    plt.title("Confusion Matrix (Top-5 Predicted Class per Query)")
-    plt.savefig("plt_confusion_matrix.png", dpi=300, bbox_inches="tight")
+    if config.display_plots:
+        disp.plot(cmap='Reds', xticks_rotation=45, colorbar=True)
+
+    plot_title = f"Confusion Matrix using\n" \
+                 + f'{run_configs.descriptor_name} Image Descriptor\n' \
+                 + (('Bins = ' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
+                 + ('; Grid = ' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '')\
+                 + ('; PCA = ' + str(run_configs.pca_components) if run_configs.use_pca else '') 
+                #  + ('; PCA = ' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components')  else '') 
+    
+    plot_filename = "confusion_matrix" \
+                + '_' + run_configs.descriptor_type \
+                + '_' + distance_metric \
+                + (('_bins' + str(run_configs.num_bins)) if hasattr(run_configs, 'num_bins') else '') \
+                + ('_grid' + str(run_configs.grid_rows) + 'x' + str(run_configs.grid_cols) if hasattr(run_configs, 'grid_rows') else '') \
+                + ('_pca' + str(run_configs.pca_components) if hasattr(run_configs, 'pca_components') else '') \
+                + '.png'    
+    
+    plt.title(plot_title)
+    out_path = os.path.join(output_folder, plot_filename)    
+    plt.savefig(out_path, dpi=300, bbox_inches="tight")
     
     if config.display_plots:
         plt.show()
@@ -299,8 +336,8 @@ def main(run_configs):
     # Load dataset once
     all_files, all_labels, all_features = load_dataset(run_configs)
     
-    # Apply PCA if configured
-    if config.use_pca:
+    # Apply PCA if use_pca is set to True
+    if run_configs.use_pca:
         all_features = cvpr_computedescriptors.compute_pca(all_features, run_configs)
     
     # Always compute covariance matrix for Mahalanobis distance
@@ -310,7 +347,10 @@ def main(run_configs):
     
     # Dictionary to store results for each distance metric
     metric_results = {}
-    distance_metrics = ['manhattan', 'euclidean', 'chi_squared', 'mahalanobis']
+    distance_metrics = ['manhattan', 'euclidean', 'chi_squared']     
+    if run_configs.use_pca:
+        distance_metrics.append('mahalanobis')
+    
     best_map = -1
     best_metric = None
     best_results = None  # To store results for confusion matrix
@@ -366,12 +406,12 @@ def main(run_configs):
         results_image_printer.image_printer(query_result_print_data)
 
     # Plot combined PR curves
-    plot_pr_curves(metric_results, output_plots_folder)
+    plot_pr_curves(metric_results, output_plots_folder, run_configs)
     
     # Plot confusion matrix for best performing metric
     print(f"\nGenerating confusion matrix for best performing metric: {best_metric}")
     unique_classes = sorted(list(set(all_labels)))
-    plot_confusion_matrix(best_results[0], best_results[1], unique_classes)
+    plot_confusion_matrix(best_results[0], best_results[1], unique_classes, output_plots_folder, run_configs, best_metric)
 
 
 if __name__ == '__main__':
