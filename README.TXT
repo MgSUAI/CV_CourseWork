@@ -11,7 +11,8 @@ is the parent folder of the "Images" sub_folder. This can either be:
     a. absolute path (eg. /home/user/xyz/documents/MSRC_ObjCategImageDatabase_v2), or
     b. or, relative path to the python scripts (eg. my/dataset/MSRC_ObjCategImageDatabase_v2)
 
-2. 
+2. run the following to install python packages
+$ pip install -r requirements.txt  
 
 
 output is stored in output directory
