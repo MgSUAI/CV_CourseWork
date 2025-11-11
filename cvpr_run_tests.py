@@ -50,8 +50,8 @@ def run_spatial_gch_tests(use_pca=False, pca_components_list=[20, 40, 60, 80, 10
 
     run_configs_sgch['use_pca'] = use_pca
     run_configs_dict = run_configs_sgch
-    bins_list = range(2, 17, 2)
-    grid_sizes_list = [4, 8, 12]
+    bins_list = [2, 4, 8, 12, 16]
+    grid_sizes_list = [2, 4, 8, 12, 16]
 
     for bin in bins_list:
         run_configs_dict['num_bins'] = bin
@@ -82,7 +82,7 @@ def run_eoh_tests(use_pca=False, pca_components_list=[20, 40, 60, 80, 100]):
 
     run_configs_eoh['use_pca'] = use_pca
     run_configs_dict = run_configs_eoh
-    eoh_bins_list = [2, 4, 8, 12, 16, 20, 24]
+    eoh_bins_list = [2, 3, 4, 6, 9, 18] # corresponds to [90, 60, 45, 30, 20, 10] degrees in 0-180 degree range
     grid_sizes_list = [2, 4, 8, 12, 16]
 
     for bin in eoh_bins_list:
@@ -119,10 +119,11 @@ def run_eoh_plus_ch_tests(use_pca=False, pca_components_list=[20, 40, 60, 80, 10
 
     run_configs_eoh_plus_ch['use_pca'] = use_pca
     run_configs_dict = run_configs_eoh_plus_ch
-    eoh_bins_list = [4, 8, 12, 16]
-    gch_bins_list = [4, 8, 12, 16]
-    grid_sizes_list = [4, 8, 12, 16] 
+    eoh_bins_list = [2, 3, 4, 6, 9, 18] # corresponds to [90, 60, 45, 30, 20, 10] degrees in 0-180 degree range
+    gch_bins_list = [2, 4, 8, 12, 16]
+    grid_sizes_list = [4, 8, 12] 
     weight_eoh_list = [0.2, 0.4, 0.5, 0.6, 0.8]
+
 
     for eoh_bin in eoh_bins_list:
         run_configs_dict['eoh_bins'] = eoh_bin
@@ -133,7 +134,7 @@ def run_eoh_plus_ch_tests(use_pca=False, pca_components_list=[20, 40, 60, 80, 10
                 run_configs_dict['grid_cols'] = grid_size
                 for weight_eoh in weight_eoh_list:
                     run_configs_dict['weight_eoh'] = weight_eoh
-                    run_configs_dict['weight_color'] = 1.0 - weight_eoh
+                    run_configs_dict['weight_color'] = round(1.0 - weight_eoh, 2) 
 
                     if use_pca:
                         for pca_comp in pca_components_list:
@@ -147,11 +148,16 @@ def run_eoh_plus_ch_tests(use_pca=False, pca_components_list=[20, 40, 60, 80, 10
 if __name__ == "__main__":
 
     try:
-        run_gch_tests(use_pca=False)
-        # run_spatial_gch_tests(False)
-        # run_eoh_tests()
-        # run_eoh_plus_ch_tests()
 
+        run_gch_tests(use_pca=False)
+        run_spatial_gch_tests(use_pca=False)
+        run_eoh_tests(use_pca=False)
+        run_eoh_plus_ch_tests(use_pca=False)
+
+        run_gch_tests(use_pca=True)
+        run_spatial_gch_tests(use_pca=True)
+        run_eoh_tests(use_pca=True)
+        run_eoh_plus_ch_tests(use_pca=True)
     
     except Exception as e:
         print("\n An error occurred during execution:")

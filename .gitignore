@@ -12,3 +12,4 @@ test*.py
 *.png
 *.pdf
 *.docx
+*.xlsx

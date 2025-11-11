@@ -23,8 +23,6 @@ def compute_descriptors(run_configs):
         if image_path.endswith(".bmp"):
             # image_path = os.path.join(image_folder, os.path.basename(filename))
 
-
-
             image = cv2.imread(image_path).astype(np.float64) 
             output_file = os.path.join(output_folder, os.path.basename(image_path).replace('.bmp', '.mat'))
             
